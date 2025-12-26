@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.0.2...v1.0.3) (2025-12-26)
+
+
+### Bug Fixes
+
+* update worklow ([8976d08](https://github.com/CoCreate-app/CoCreate-plugins/commit/8976d080f8972e840ff5530d5dfb15f839e9ac5b))
+
 ## [1.0.2](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.0.1...v1.0.2) (2025-12-25)
 
 
