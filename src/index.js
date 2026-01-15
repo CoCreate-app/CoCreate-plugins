@@ -172,6 +172,8 @@ const plugins = {
 
 // Global Cache for script promises to prevent race conditions and duplicate loads
 const scriptCache = new Map();
+// Cache the CSS marker once on load
+const cssMarker = typeof document !== 'undefined' ? document.querySelector('link[plugins]') : null;
 
 /**
  * Global Initialization Function
@@ -211,7 +213,29 @@ async function processPlugin(el) {
         if (pluginDef.css) pluginDef.css.forEach(href => {
             if (!document.querySelector(`link[href="${href}"]`)) {
                 const link = document.createElement("link");
-                link.rel = "stylesheet"; link.href = href; document.head.appendChild(link);
+                link.rel = "stylesheet"; 
+                link.href = href;
+                
+                // CSS INJECTION STRATEGY:
+                // 1. Priority: Check for a specific marker element <link plugin> 
+                //    (Cached globally in cssMarker)
+                
+                if (cssMarker) {
+                    // Insert before the marker
+                    cssMarker.parentNode.insertBefore(link, cssMarker);
+                } else {
+                    // 2. Fallback: Prepend before existing CSS
+                    // To allow custom CSS to easily override plugin defaults, we must ensure 
+                    // plugin CSS loads BEFORE user CSS.
+                    const firstStyle = document.head.querySelector('link[rel="stylesheet"], style');
+                    
+                    if (firstStyle) {
+                        document.head.insertBefore(link, firstStyle);
+                    } else {
+                        // If no CSS exists yet, appending is safe
+                        document.head.appendChild(link);
+                    }
+                }
             }
         });
 
