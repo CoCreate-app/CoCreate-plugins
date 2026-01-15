@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.0.3...v1.1.0) (2026-01-15)
+
+
+### Features
+
+* add marker to indicate where css files will be inserted ([6b4b030](https://github.com/CoCreate-app/CoCreate-plugins/commit/6b4b0301acdabff19b8cca5968cc67619e417c92))
+
 ## [1.0.3](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.0.2...v1.0.3) (2025-12-26)
 
 
