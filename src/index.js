@@ -180,7 +180,7 @@ const cssMarker = typeof document !== 'undefined' ? document.querySelector('link
  * Processes one or more elements to attach plugins.
  * @param {HTMLElement|NodeList|Array} elements - Element, or Collection of Elements
  */
-export function init(elements) {
+ function init(elements) {
     if (!elements) return;
 
     let collection = [];
@@ -351,10 +351,10 @@ function executeGenericPlugin(el, name) {
  * - $anime.stagger(100)
  */
 function processParams(el, params) {
-    if (typeof params === 'string' && params.startsWith('$')) {
+    if (typeof params === 'string' && params.startsWith('\u0024')) {
         try {
             // 1. Check for Method Call: $root.path.to.func(arg)
-            const callMatch = params.match(/^\$([^.]+)\.(.+)\((.*)\)$/);
+            const callMatch = params.match(/^\u0024([^.]+)\.(.+)\((.*)\)$/);
             if (callMatch) {
                 const [_, root, path, arg] = callMatch;
                 const obj = (root === 'this') ? el : window[root];
@@ -371,7 +371,7 @@ function processParams(el, params) {
             }
             
             // 2. Check for Property Access: $root.path.to.prop or just $root
-            const propMatch = params.match(/^\$([^.]+)(?:\.(.+))?$/);
+            const propMatch = params.match(/^\u0024([^.]+)(?:\.(.+))?$/);
             if (propMatch) {
                 const [_, root, path] = propMatch;
                 const obj = (root === 'this') ? el : window[root];
@@ -411,3 +411,5 @@ Observer.init({
 if (typeof document !== 'undefined') {
     init(document.querySelectorAll("[plugin]"));
 }
+
+export default { init }
