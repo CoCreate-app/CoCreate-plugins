@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.1.0...v1.1.1) (2026-02-09)
+
+
+### Bug Fixes
+
+* change init function to default export and update parameter handling ([654b623](https://github.com/CoCreate-app/CoCreate-plugins/commit/654b623760446cbd9db55cc216e25a07fe7865e3))
+
 # [1.1.0](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.0.3...v1.1.0) (2026-01-15)
 
 
