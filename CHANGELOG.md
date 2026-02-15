@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.1.1...v1.2.0) (2026-02-15)
+
+
+### Bug Fixes
+
+* improve key validation in executeGenericPlugin function ([447f6d2](https://github.com/CoCreate-app/CoCreate-plugins/commit/447f6d209adea010110c3bc52a17f8b45cb302ea))
+
+
+### Features
+
+* enhance demo page with improved layout and Bootstrap integration ([a74615e](https://github.com/CoCreate-app/CoCreate-plugins/commit/a74615e27be7c2f40529c5242e6c6e9b839ad020))
+* refactor plugin management and enhance dynamic loading capabilities ([4d91958](https://github.com/CoCreate-app/CoCreate-plugins/commit/4d919582934418cfb7bfa9497b6d0dcaf3bf8d10))
+
 ## [1.1.1](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.1.0...v1.1.1) (2026-02-09)
 
 
