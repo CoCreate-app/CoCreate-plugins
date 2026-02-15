@@ -199,7 +199,9 @@ function executeGenericPlugin(el, name) {
             key = name;
         } else if (key.startsWith(prefix + '-')) {
             key = key.replaceAll("-", ".");    
-        } else continue
+        } else if (!key.startsWith(prefix + '.')) {
+          continue 
+        }
 
         try { 
             rawData[key] = JSON.parse(attr.value);
