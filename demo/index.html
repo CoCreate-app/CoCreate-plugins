@@ -1,12 +1,230 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>plugins demo</title>
-		<link rel="manifest" href="/manifest.webmanifest" />
-	</head>
-	<body>
-		<!--<script src="../dist/CoCreate-plugins.js"></script>-->
-		<!-- <script src="https://CoCreate.app/dist/CoCreate.js"  ></script> -->
-		<script src="https://CoCreate.app/dist/CoCreate.js"></script>
-	</body>
+    <head>
+        <title>Plugins API Demo</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="manifest" href="/manifest.webmanifest" />
+        
+        <!-- Bootstrap 5 CSS for Demo Presentation -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        
+        <style>
+            body { background-color: #f8f9fa; padding-bottom: 50px; }
+            .demo-card { margin-bottom: 2rem; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            .card-header { background-color: #fff; border-bottom: 1px solid #eee; padding: 1.5rem; }
+            .operator-badge { font-family: monospace; background: #e9ecef; color: #d63384; padding: 2px 6px; border-radius: 4px; }
+        </style>
+    </head>
+    <body>
+
+        <div class="container py-5">
+            <div class="row mb-4">
+                <div class="col-12 text-center">
+                    <h1 class="display-5 fw-bold text-primary">CoCreate Plugins API</h1>
+                    <p class="lead text-muted">A declarative, attribute-based system for initializing and configuring JavaScript libraries.</p>
+                </div>
+            </div>
+
+            <!-- SECTION 1: THE BASICS -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card demo-card">
+                        <div class="card-header">
+                            <h4 class="m-0">1. The Basics: Declarative Initialization</h4>
+                        </div>
+                        <div class="card-body">
+                            <p>Initialize any supported plugin using the <code>plugin="PluginName"</code> attribute. Configure it using the lowercase attribute matching the plugin name (e.g., <code>pluginname="{ options }"</code>).</p>
+                            
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted text-uppercase fs-7 fw-bold mb-3">Live Demo</h6>
+                                    <!-- Toastify Example -->
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-success"
+                                        plugin="Toastify" 
+                                        toastify='{ 
+                                            "text": "Hello! I am a declarative toast.", 
+                                            "duration": 3000, 
+                                            "gravity": "top", 
+                                            "position": "right", 
+                                            "style": { "background": "#198754" } 
+                                        }'
+                                        onclick="this.Toastify.showToast()">
+                                        Click me to Show Toast
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-muted text-uppercase fs-7 fw-bold mb-3">Code</h6>
+<pre><code class="language-html">&lt;button 
+    plugin="Toastify" 
+    toastify='{ 
+        "text": "Hello!", 
+        "duration": 3000, 
+        "style": { "background": "#198754" } 
+    }'
+    onclick="this.Toastify.showToast()"&gt;
+    Click Me
+&lt;/button&gt;</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: OPERATORS & VARIABLES -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card demo-card">
+                        <div class="card-header">
+                            <h4 class="m-0">2. Variable Operators</h4>
+                        </div>
+                        <div class="card-body">
+                            <p>The API supports special variables to reference DOM elements and global objects dynamically within your JSON configuration.</p>
+                            
+                            <div class="table-responsive mb-4">
+                                <table class="table table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Operator</th>
+                                            <th>Description</th>
+                                            <th>Usage Example</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><span class="operator-badge">$this</span></td>
+                                            <td>References the current DOM element where the attribute is placed.</td>
+                                            <td><code>"element": "$this"</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td><span class="operator-badge">$window</span></td>
+                                            <td>Accesses the global <code>window</code> object (useful for callbacks).</td>
+                                            <td><code>"callback": "$window.console.log"</code></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- RaterJs Example ($this) -->
+                            <div class="border rounded p-3 bg-light mb-3">
+                                <h5 class="mb-3">Example: Using <code>$this</code> for Element Binding</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <!-- RaterJs Implementation -->
+                                        <div dir="ltr" 
+                                             plugin="raterJs" 
+                                             raterjs='[{ 
+                                                 "element": "$this", 
+                                                 "starSize": 32, 
+                                                 "rating": 3.5, 
+                                                 "step": 0.5 
+                                             }]'>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+<pre><code class="language-html">&lt;div 
+    plugin="raterJs" 
+    raterjs='[{ 
+        "element": "$this", 
+        "starSize": 32, 
+        "rating": 3.5 
+    }]'&gt;
+&lt;/div&gt;</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: CONFIGURATION PATTERNS -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card demo-card">
+                        <div class="card-header">
+                            <h4 class="m-0">3. Configuration Patterns (Array vs. Object)</h4>
+                        </div>
+                        <div class="card-body">
+                            <p>Plugins have different constructor signatures. The API handles both by inspecting the JSON structure.</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card h-100 bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold">Pattern A: Single Config Object</h6>
+                                            <p class="small text-muted">Used when the plugin accepts a single object containing all settings (e.g., <code>raterJs({ element: div })</code>).</p>
+                                            <hr>
+                                            <code>config='[{ "element": "$this", "opt": "val" }]'</code>
+                                            <br><small class="text-danger">*Note: Enclosed in an array to represent arguments list.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100 bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="fw-bold">Pattern B: Argument List</h6>
+                                            <p class="small text-muted">Used when the plugin accepts multiple distinct arguments (e.g., <code>Swiper(element, options)</code>).</p>
+                                            <hr>
+                                            <code>config='["$this", { "opt": "val" }]'</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- SECTION 4: ADVANCED (Callbacks) -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card demo-card">
+                        <div class="card-header">
+                            <h4 class="m-0">4. Advanced: Callbacks & Global Functions</h4>
+                        </div>
+                        <div class="card-body">
+                            <p>Use <code>$window</code> or specific global names (like <code>$Swal</code>) to pass functions into configuration attributes.</p>
+                            
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <!-- SweetAlert Example -->
+                                    <button 
+                                        type="button"
+                                        class="btn btn-primary"
+                                        onclick="Swal.fire({
+                                            title: 'Are you sure?',
+                                            text: 'You can define this entire config in HTML!',
+                                            icon: 'warning',
+                                            showCancelButton: true,
+                                            confirmButtonText: 'Yes, delete it!'
+                                        })">
+                                        Trigger SweetAlert
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+<pre><code class="language-html">&lt;button 
+    onclick="Swal.fire({
+        title: 'Ready?',
+        preConfirm: '$window.myCustomFunction' 
+    }) &gt;
+    Launch
+&lt;/button&gt;</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CoCreate Engine -->
+        <script src="https://CoCreate.app/dist/CoCreate.js"></script>
+
+    </body>
 </html>
