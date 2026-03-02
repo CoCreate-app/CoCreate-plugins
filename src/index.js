@@ -3,7 +3,7 @@ import {dotNotationToObject} from "@cocreate/utils";
 
 /**
  * @typedef {Object} PluginDefinition
- * @property {Array<string|Object>} [js] - List of JS files to load. Can be strings (URLs) or objects with src, integrity, etc.
+ * @property {Array<string|Object>} [js] - List of JS files to load. Can be strings (URLs) or objects with src, integrity, etc
  * @property {Array<string>} [css] - List of CSS files to load.
  */
 
@@ -107,6 +107,8 @@ async function processPlugin(el) {
 
             // Load JS with Promise Cache
             if (pluginDef.js) {
+                const preWindowKeys = (typeof window !== 'undefined') ? new Set(Object.keys(window)) : new Set();
+
                 for (const item of pluginDef.js) {
                     const src = typeof item === 'string' ? item : item.src;
                     const integrity = typeof item === 'object' ? item.integrity : null;
@@ -151,6 +153,36 @@ async function processPlugin(el) {
                     } catch (e) {
                         console.error(`Failed to load script: ${src}`, e);
                     }
+                }
+
+                // After loading JS files, map newly-added globals to the expected plugin name.
+                // Exact (case-insensitive) matching only.
+                try {
+                    if (typeof window !== 'undefined') {
+                        const expectedName = pluginName;
+                        const lower = expectedName.toLowerCase();
+
+                        const allKeys = Object.keys(window);
+                        const newKeys = allKeys.filter(k => !preWindowKeys.has(k));
+                        let mappedKey = null;
+
+                        for (const k of newKeys) {
+                            if (k.toLowerCase() === lower) { mappedKey = k; break; }
+                        }
+
+                        if (!mappedKey) {
+                            for (const k of allKeys) {
+                                if (k.toLowerCase() === lower) { mappedKey = k; break; }
+                            }
+                        }
+
+                        if (mappedKey && !window[expectedName]) {
+                            window[expectedName] = window[mappedKey];
+                            console.debug(`Mapped plugin global: window.${expectedName} <- window.${mappedKey}`);
+                        }
+                    }
+                } catch (err) {
+                    // Non-fatal
                 }
             }
         }
@@ -234,7 +266,7 @@ function executeGenericPlugin(el, name) {
                 
                 // Pass context: Window as parent, Plugin Name as property (for potential context binding)
                 // el and name used to store the result on the element.
-                update(Target, val, window, name, el, name);
+                update(Target, val, window, name, el, name, el);
 
                 console.log(`Processed ${name}`);
             } catch (e) {
@@ -244,7 +276,126 @@ function executeGenericPlugin(el, name) {
     }
 }
 
-function update(Target, val, parent, property, elParent, elProperty) {
+function resolvePathWithParent(root, path) {
+    if (!root || !path || typeof path !== "string") return { parent: null, value: undefined };
+    const parts = path.split(".").filter(Boolean);
+    if (!parts.length) return { parent: null, value: undefined };
+
+    let parent = null;
+    let current = root;
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (current == null) return { parent: null, value: undefined };
+        parent = current;
+        current = current[part];
+    }
+    return { parent, value: current };
+}
+
+function normalizeCrudPayload(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+
+    if (value.type && Array.isArray(value[value.type])) return value[value.type];
+    if (value.method && typeof value.method === "string") {
+        const type = value.method.split(".")[0];
+        if (type && Array.isArray(value[type])) return value[type];
+    }
+    return value;
+}
+
+function getPluginInstancesFromElement(el) {
+    if (!el || !el.__cocreatePluginInstances) return [];
+    return Object.values(el.__cocreatePluginInstances).filter(Boolean);
+}
+
+function isReferenceAssignment(val) {
+    return typeof val === "string" && val.trim().startsWith("=");
+}
+
+function normalizeReferencePath(refPath) {
+    if (typeof refPath !== "string") return "";
+    return refPath.trim().replace(/^=\s*/, "");
+}
+
+function resolveCallableReference(refPath, parent, hostElement) {
+    const normalized = normalizeReferencePath(refPath);
+    if (!normalized) return { fn: undefined, context: undefined, methodName: undefined };
+
+    const methodName = normalized.split(".").pop();
+    const startsWithThis = normalized === "$this" || normalized.startsWith("$this.");
+    const startsWithWindow = normalized === "$window" || normalized.startsWith("$window.");
+    const startsWithToken = normalized.startsWith("$");
+
+    const candidates = [];
+    if (startsWithThis) {
+        const path = normalized.replace(/^\$this\.?/, "");
+        candidates.push({ root: hostElement || parent, path });
+    } else if (startsWithWindow) {
+        const path = normalized.replace(/^\$window\.?/, "");
+        candidates.push({ root: window, path });
+    } else if (startsWithToken) {
+        const path = normalized.replace(/^\$/, "");
+        candidates.push({ root: hostElement, path });
+        candidates.push({ root: parent, path });
+        candidates.push({ root: window, path });
+    } else {
+        candidates.push({ root: hostElement, path: normalized });
+        candidates.push({ root: parent, path: normalized });
+        candidates.push({ root: window, path: normalized });
+    }
+
+    for (const candidate of candidates) {
+        if (!candidate.root) continue;
+        const { parent: resolvedParent, value } = resolvePathWithParent(candidate.root, candidate.path);
+        if (typeof value === "function") {
+            return { fn: value, context: resolvedParent, methodName };
+        }
+    }
+
+    if (methodName) {
+        const instances = getPluginInstancesFromElement(hostElement || parent);
+        for (const instance of instances) {
+            if (instance && typeof instance[methodName] === "function") {
+                return { fn: instance[methodName], context: instance, methodName };
+            }
+        }
+    }
+
+    return { fn: undefined, context: undefined, methodName };
+}
+
+function createFunctionAdapter(refPath, parent, property, hostElement) {
+    const normalizedRefPath = normalizeReferencePath(refPath);
+    const methodName = normalizedRefPath.split(".").pop();
+
+    return function (...args) {
+        const resolved = resolveCallableReference(normalizedRefPath, parent, hostElement);
+        const fn = resolved.fn;
+        const context = resolved.context;
+
+        if (typeof fn !== "function") {
+            console.error(`Plugin adapter failed: "${normalizedRefPath}" did not resolve to a function for ${property}.`);
+            return;
+        }
+
+        if (property === "setValue") {
+            const payload = normalizeCrudPayload(args[0]);
+
+            if (methodName === "addEventSource" && context && typeof context.getEventSources === "function") {
+                const sources = context.getEventSources();
+                if (Array.isArray(sources)) {
+                    sources.forEach(source => source && typeof source.remove === "function" && source.remove());
+                }
+            }
+
+            return fn.call(context || this, payload);
+        }
+
+        return fn.apply(context || this, args);
+    };
+}
+
+function update(Target, val, parent, property, elParent, elProperty, hostElement) {
     // RESOLUTION: Handle case-insensitivity before processing targets.
     // If Target is missing, check parent for a property matching 'property' (case-insensitive).
     if (!Target && parent && property) {
@@ -261,6 +412,13 @@ function update(Target, val, parent, property, elParent, elProperty) {
 
     let instance;
     if (typeof Target === 'function') {
+        if (isReferenceAssignment(val) && parent && property) {
+            instance = createFunctionAdapter(val, parent, property, hostElement);
+            parent[property] = instance;
+            if (elParent && elProperty) elParent[elProperty] = instance;
+            return;
+        }
+
         if (!isConstructor(Target, property)) {
             // Call as a function (method or standalone)
             // Use 'parent' as context (this) if available to maintain class references
@@ -291,6 +449,12 @@ function update(Target, val, parent, property, elParent, elProperty) {
             elParent[elProperty] = instance;
         }
 
+        if (instance && instance.el && typeof instance.el === "object") {
+            if (!instance.el.__cocreatePluginInstances) instance.el.__cocreatePluginInstances = {};
+            const key = property || (Target && Target.name) || "instance";
+            instance.el.__cocreatePluginInstances[key] = instance;
+        }
+
     } else if (typeof Target === 'object' && Target !== null && typeof val === 'object' && val !== null && !Array.isArray(val)) {
         // Prepare the next level of the element structure
         if (elParent && elProperty) {
@@ -300,10 +464,17 @@ function update(Target, val, parent, property, elParent, elProperty) {
             const nextElParent = elParent[elProperty];
             
             for (let key in val) {
-                update(Target[key], val[key], Target, key, nextElParent, key);
+                update(Target[key], val[key], Target, key, nextElParent, key, hostElement);
             }
         }
     } else if (parent && property) {
+        if (isReferenceAssignment(val)) {
+            const adapter = createFunctionAdapter(val, parent, property, hostElement);
+            parent[property] = adapter;
+            if (elParent && elProperty) elParent[elProperty] = adapter;
+            return;
+        }
+
         // If it's not a function, we are setting a value on the plugin object
         parent[property] = val;
         
