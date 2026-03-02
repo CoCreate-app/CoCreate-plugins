@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.2.0...v1.2.1) (2026-03-02)
+
+
+### Bug Fixes
+
+* Handle case-insensitive plugin global mapping and add support for function reference assignments in plugin properties. ([904a947](https://github.com/CoCreate-app/CoCreate-plugins/commit/904a947abc868937b6e650b62e080d00341272a1))
+
 # [1.2.0](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.1.1...v1.2.0) (2026-02-15)
 
 
