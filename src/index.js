@@ -1,592 +1,248 @@
 import Observer from "@cocreate/observer";
-import {dotNotationToObject} from "@cocreate/utils";
+import { processOperatorsAsync } from "@cocreate/utils";
 
 /**
  * @typedef {Object} PluginDefinition
- * @property {Array<string|Object>} [js] - List of JS files to load. Can be strings (URLs) or objects with src, integrity, etc
+ * @property {Array<string|Object>} [js] - List of JS files to load.
  * @property {Array<string>} [css] - List of CSS files to load.
  */
 
 // --- CONFIGURATION ---
-
-/**
- * @type {Object.<string, PluginDefinition>}
- * Configuration object containing plugin definitions.
- * Populated dynamically from CoCreate.config.js or defaults.
- */
 const plugins = {};
 
 // --- CORE ENGINE ---
-
-/**
- * Global Cache for script promises to prevent race conditions and duplicate loads.
- * Stores the pending Promise for a script source URL.
- * @type {Map<string, Promise<void>>}
- */
 const scriptCache = new Map();
-
-/**
- * Cache the CSS marker once on load to determine injection point.
- * Used to ensure plugin CSS is injected in the correct order relative to user styles.
- * @type {Element|null}
- */
 const cssMarker = typeof document !== 'undefined' ? document.querySelector('link[plugins]') : null;
 
 /**
  * Global Initialization Function.
- * Processes one or more elements to detect and attach plugins.
- * * @param {HTMLElement|NodeList|Array<HTMLElement>} elements - Single Element, NodeList, or Array of Elements to initialize.
- * @returns {void}
  */
- function init(elements) {
+function init(elements) {
     if (!elements) return;
-
-    let collection = [];
-    if (elements instanceof HTMLElement || elements instanceof Element) {
-        collection = [elements];
-    } else if (elements.length !== undefined && typeof elements !== 'function') {
-        collection = Array.from(elements);
-    } else {
-        collection = [elements];
-    }
-
+    let collection = (elements instanceof HTMLElement || elements instanceof Element) ? [elements] : Array.from(elements || []);
     collection.forEach(el => {
-        if (el && typeof el.getAttribute === 'function') {
-            processPlugin(el);
-        }
+        if (el && typeof el.getAttribute === 'function') processPlugin(el);
     });
 }
 
 /**
- * Processes an individual element to detect, load resources for, and execute plugins.
- * Reads the 'plugin' attribute (e.g., plugin="chart, map") to identify targets.
- * * @async
- * @param {HTMLElement} el - The DOM element to process.
- * @returns {Promise<void>} Resolves when all resources for the plugins are loaded.
+ * Processes resources and executes attributes in strict DOM order.
+ * The attribute list IS the script. We iterate once and execute everything in sequence.
  */
 async function processPlugin(el) {
     const rawAttr = el.getAttribute("plugin");
-    if (!rawAttr) return;
-
-    const pluginNames = rawAttr.split(',').map(s => s.trim());
+    const pluginNames = rawAttr ? rawAttr.split(',').map(s => s.trim()) : [];
     
-    for (const pluginName of pluginNames) {
-        const pluginDef = plugins[pluginName];
-        
-        // Only attempt to load resources if a configuration exists
-        if (pluginDef) {
-            // Load CSS
+    // 1. RESOURCE PRE-LOADING
+    for (const name of pluginNames) {
+        const pluginDef = plugins[name];
+
+        if (pluginDef && !window[name]) {
             if (pluginDef.css) pluginDef.css.forEach(href => {
                 if (!document.querySelector(`link[href="${href}"]`)) {
                     const link = document.createElement("link");
-                    link.rel = "stylesheet"; 
-                    link.href = href;
-                    
-                    // CSS INJECTION STRATEGY:
-                    // 1. Priority: Check for a specific marker element <link plugin> 
-                    //    (Cached globally in cssMarker)
-                    
-                    if (cssMarker) {
-                        // Insert before the marker
-                        cssMarker.parentNode.insertBefore(link, cssMarker);
-                    } else {
-                        // 2. Fallback: Prepend before existing CSS
-                        // To allow custom CSS to easily override plugin defaults, we must ensure 
-                        // plugin CSS loads BEFORE user CSS.
-                        const firstStyle = document.head.querySelector('link[rel="stylesheet"], style');
-                        
-                        if (firstStyle) {
-                            document.head.insertBefore(link, firstStyle);
-                        } else {
-                            // If no CSS exists yet, appending is safe
-                            document.head.appendChild(link);
-                        }
-                    }
+                    link.rel = "stylesheet"; link.href = href;
+                    if (cssMarker) cssMarker.parentNode.insertBefore(link, cssMarker);
+                    else document.head.appendChild(link);
                 }
             });
 
-            // Load JS with Promise Cache
             if (pluginDef.js) {
-                const preWindowKeys = (typeof window !== 'undefined') ? new Set(Object.keys(window)) : new Set();
-
                 for (const item of pluginDef.js) {
                     const src = typeof item === 'string' ? item : item.src;
-                    const integrity = typeof item === 'object' ? item.integrity : null;
-                    const crossOrigin = typeof item === 'object' ? item.crossOrigin : null;
-
+                    if (!src) continue;
                     if (!scriptCache.has(src)) {
-                        const scriptPromise = new Promise((resolve, reject) => {
-                            // Check if already in DOM (manual load)
-                            const existing = document.querySelector(`script[src="${src}"]`);
-                            if (existing) {
-                                if (existing.dataset.loaded === "true") {
-                                    resolve();
-                                } else {
-                                    const prevOnload = existing.onload;
-                                    existing.onload = () => {
-                                        if (prevOnload) prevOnload();
-                                        existing.dataset.loaded = "true";
-                                        resolve();
-                                    };
-                                    existing.onerror = reject;
-                                }
-                            } else {
-                                const s = document.createElement("script");
-                                s.src = src;
-                                if (integrity) {
-                                    s.integrity = integrity;
-                                    s.crossOrigin = crossOrigin || "anonymous";
-                                }
-                                s.onload = () => {
-                                    s.dataset.loaded = "true";
-                                    resolve();
-                                };
-                                s.onerror = reject;
+                        const existingScript = document.querySelector(`script[src*="${src}"]`);
+                        if (existingScript && (existingScript.dataset.loaded === "true" || window[name])) {
+                            scriptCache.set(src, Promise.resolve());
+                        } else {
+                            const s = document.createElement("script");
+                            s.src = src;
+                            scriptCache.set(src, new Promise((resolve) => {
+                                s.onload = () => { s.dataset.loaded = "true"; resolve(); };
+                                s.onerror = () => resolve();
                                 document.head.appendChild(s);
-                            }
-                        });
-                        scriptCache.set(src, scriptPromise);
-                    }
-
-                    try {
-                        await scriptCache.get(src);
-                    } catch (e) {
-                        console.error(`Failed to load script: ${src}`, e);
-                    }
-                }
-
-                // After loading JS files, map newly-added globals to the expected plugin name.
-                // Exact (case-insensitive) matching only.
-                try {
-                    if (typeof window !== 'undefined') {
-                        const expectedName = pluginName;
-                        const lower = expectedName.toLowerCase();
-
-                        const allKeys = Object.keys(window);
-                        const newKeys = allKeys.filter(k => !preWindowKeys.has(k));
-                        let mappedKey = null;
-
-                        for (const k of newKeys) {
-                            if (k.toLowerCase() === lower) { mappedKey = k; break; }
-                        }
-
-                        if (!mappedKey) {
-                            for (const k of allKeys) {
-                                if (k.toLowerCase() === lower) { mappedKey = k; break; }
-                            }
-                        }
-
-                        if (mappedKey && !window[expectedName]) {
-                            window[expectedName] = window[mappedKey];
-                            console.debug(`Mapped plugin global: window.${expectedName} <- window.${mappedKey}`);
+                            }));
                         }
                     }
-                } catch (err) {
-                    // Non-fatal
+                    await scriptCache.get(src);
                 }
             }
         }
-        
-        // Attempt to execute plugin even if no config was found (it might be on window already)
-        executeGenericPlugin(el, pluginName);
-    }
-}
-
-/**
- * Helper to determine if a function should be called with 'new'.
- * Uses heuristics like ES6 class syntax, lack of prototype (arrow function), or PascalCase naming.
- * * @param {Function} func - The function to check.
- * @param {string} [name] - The property name associated with the function (for casing check).
- * @returns {boolean} True if the function appears to be a constructor.
- */
-const isConstructor = (func, name) => {
-    try {
-        if (typeof func !== 'function') return false;
-        if (/^\s*class\s+/.test(func.toString())) return true;
-        if (!func.prototype) return false;
-        const n = name || func.name;
-        if (n && /^[A-Z]/.test(n)) return true;
-    } catch(e) {}
-    return false;
-};
-
-/**
- * Executes the logic for a generic plugin on a specific element.
- * Handles:
- * 1. Resolving the target class/function from window.
- * 2. Initializing the base instance.
- * 3. Processing attribute paths and nested JSON objects to execute methods or set properties.
- * * @param {HTMLElement} el - The target element.
- * @param {string} name - The name of the plugin (case-insensitive identifier).
- * @returns {void}
- */
-function executeGenericPlugin(el, name) {
-    const prefix = name.toLowerCase();
-    const mainAttr = el.getAttribute(prefix);
-    let rawData = {};
-
-    for (let attr of el.attributes) {
-        let key = attr.name;
-        if (key === prefix) {
-            key = name;
-        } else if (key.startsWith(prefix + '-')) {
-            key = key.replaceAll("-", ".");    
-        } else if (!key.startsWith(prefix + '.')) {
-          continue 
-        }
-
-        try { 
-            rawData[key] = JSON.parse(attr.value);
-        } catch(e) {
-            rawData[key] = attr.value; 
-        }   
-
-    };
-
-    // 2. Resolve parameters (Token Resolver)
-    let resolved = processParams(el, rawData);
-    resolved = dotNotationToObject(resolved);
-
-    let Plugin = window[name] || window[prefix]; 
-    if (!Plugin) {
-        console.error(`Plugin for ${name} not found on window.`);
-        return;
     }
 
-    // Iterate over resolved object. 
-    // Since we use dotNotationToObject, keys like "swiper.effect" are already nested as { swiper: { effect: ... } }
-    for (let key in resolved) {
-        // We generally expect the root key to match the plugin name (e.g., 'swiper')
-        // We unwrap this root key to pass the actual config to the Plugin.
-        if (key === name || key.toLowerCase() === prefix) {
-            try {
-                // Determine Target: Use existing instance on element if available, else use Window Plugin
-                let Target = el[name] || Plugin;
-                let val = resolved[key];
-                
-                // Pass context: Window as parent, Plugin Name as property (for potential context binding)
-                // el and name used to store the result on the element.
-                update(Target, val, window, name, el, name, el);
+    // 2. LINEAR ATTRIBUTE SCRIPT EXECUTION
+    const attributes = Array.from(el.attributes);
+    for (let i = 0; i < attributes.length; i++) {
+        const attr = attributes[i];
+        const attrName = attr.name;
+        const attrLower = attrName.toLowerCase();
 
-                console.log(`Processed ${name}`);
-            } catch (e) {
-                console.error(`Error processing ${name}:`, e);
-            }
-        }
-    }
-}
-
-function resolvePathWithParent(root, path) {
-    if (!root || !path || typeof path !== "string") return { parent: null, value: undefined };
-    const parts = path.split(".").filter(Boolean);
-    if (!parts.length) return { parent: null, value: undefined };
-
-    let parent = null;
-    let current = root;
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        if (current == null) return { parent: null, value: undefined };
-        parent = current;
-        current = current[part];
-    }
-    return { parent, value: current };
-}
-
-function normalizeCrudPayload(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-
-    if (value.type && Array.isArray(value[value.type])) return value[value.type];
-    if (value.method && typeof value.method === "string") {
-        const type = value.method.split(".")[0];
-        if (type && Array.isArray(value[type])) return value[type];
-    }
-    return value;
-}
-
-function getPluginInstancesFromElement(el) {
-    if (!el || !el.__cocreatePluginInstances) return [];
-    return Object.values(el.__cocreatePluginInstances).filter(Boolean);
-}
-
-function isReferenceAssignment(val) {
-    return typeof val === "string" && val.trim().startsWith("=");
-}
-
-function normalizeReferencePath(refPath) {
-    if (typeof refPath !== "string") return "";
-    return refPath.trim().replace(/^=\s*/, "");
-}
-
-function resolveCallableReference(refPath, parent, hostElement) {
-    const normalized = normalizeReferencePath(refPath);
-    if (!normalized) return { fn: undefined, context: undefined, methodName: undefined };
-
-    const methodName = normalized.split(".").pop();
-    const startsWithThis = normalized === "$this" || normalized.startsWith("$this.");
-    const startsWithWindow = normalized === "$window" || normalized.startsWith("$window.");
-    const startsWithToken = normalized.startsWith("$");
-
-    const candidates = [];
-    if (startsWithThis) {
-        const path = normalized.replace(/^\$this\.?/, "");
-        candidates.push({ root: hostElement || parent, path });
-    } else if (startsWithWindow) {
-        const path = normalized.replace(/^\$window\.?/, "");
-        candidates.push({ root: window, path });
-    } else if (startsWithToken) {
-        const path = normalized.replace(/^\$/, "");
-        candidates.push({ root: hostElement, path });
-        candidates.push({ root: parent, path });
-        candidates.push({ root: window, path });
-    } else {
-        candidates.push({ root: hostElement, path: normalized });
-        candidates.push({ root: parent, path: normalized });
-        candidates.push({ root: window, path: normalized });
-    }
-
-    for (const candidate of candidates) {
-        if (!candidate.root) continue;
-        const { parent: resolvedParent, value } = resolvePathWithParent(candidate.root, candidate.path);
-        if (typeof value === "function") {
-            return { fn: value, context: resolvedParent, methodName };
-        }
-    }
-
-    if (methodName) {
-        const instances = getPluginInstancesFromElement(hostElement || parent);
-        for (const instance of instances) {
-            if (instance && typeof instance[methodName] === "function") {
-                return { fn: instance[methodName], context: instance, methodName };
-            }
-        }
-    }
-
-    return { fn: undefined, context: undefined, methodName };
-}
-
-function createFunctionAdapter(refPath, parent, property, hostElement) {
-    const normalizedRefPath = normalizeReferencePath(refPath);
-    const methodName = normalizedRefPath.split(".").pop();
-
-    return function (...args) {
-        const resolved = resolveCallableReference(normalizedRefPath, parent, hostElement);
-        const fn = resolved.fn;
-        const context = resolved.context;
-
-        if (typeof fn !== "function") {
-            console.error(`Plugin adapter failed: "${normalizedRefPath}" did not resolve to a function for ${property}.`);
-            return;
+        const isDirectThis = attrName.startsWith('$this.');
+        let cleanAttrName = attrLower;
+        if (isDirectThis) {
+            cleanAttrName = attrLower.substring(6); // Strip '$this.' for plugin matching
         }
 
-        if (property === "setValue") {
-            const payload = normalizeCrudPayload(args[0]);
+        // Router: Find if this matches a listed plugin
+        const activePluginName = pluginNames.find(p => cleanAttrName === p.toLowerCase() || cleanAttrName.startsWith(p.toLowerCase() + '.'));
 
-            if (methodName === "addEventSource" && context && typeof context.getEventSources === "function") {
-                const sources = context.getEventSources();
-                if (Array.isArray(sources)) {
-                    sources.forEach(source => source && typeof source.remove === "function" && source.remove());
-                }
-            }
+        if (!activePluginName && !isDirectThis) continue;
 
-            return fn.call(context || this, payload);
-        }
-
-        return fn.apply(context || this, args);
-    };
-}
-
-function update(Target, val, parent, property, elParent, elProperty, hostElement) {
-    // RESOLUTION: Handle case-insensitivity before processing targets.
-    // If Target is missing, check parent for a property matching 'property' (case-insensitive).
-    if (!Target && parent && property) {
-        const lowerProp = String(property).toLowerCase();
-        for (const key in parent) {
-            if (key.toLowerCase() === lowerProp) {
-                Target = parent[key];
-                property = key;
-                if (elProperty) elProperty = key; // Update element structure key to match real property
-                break;
-            }
-        }
-    }
-
-    let instance;
-    if (typeof Target === 'function') {
-        if (isReferenceAssignment(val) && parent && property) {
-            instance = createFunctionAdapter(val, parent, property, hostElement);
-            parent[property] = instance;
-            if (elParent && elProperty) elParent[elProperty] = instance;
-            return;
-        }
-
-        if (!isConstructor(Target, property)) {
-            // Call as a function (method or standalone)
-            // Use 'parent' as context (this) if available to maintain class references
-            if (parent) {
-                if (Array.isArray(val)) {
-                    instance = Target.apply(parent, val);
-                } else {
-                    instance = Target.call(parent, val);
-                }
-            } else {
-                if (Array.isArray(val)) {
-                    instance = Target(...val);
-                } else {
-                    instance = Target(val);
-                }
-            }
-        } else {
-            // Call as a Constructor
-            if (Array.isArray(val)) {
-                instance = new Target(...val);
-            } else {
-                instance = new Target(val);
-            }
-        }
-        
-        // Assign the result to the element structure
-        if (elParent && elProperty) {
-            elParent[elProperty] = instance;
-        }
-
-        if (instance && instance.el && typeof instance.el === "object") {
-            if (!instance.el.__cocreatePluginInstances) instance.el.__cocreatePluginInstances = {};
-            const key = property || (Target && Target.name) || "instance";
-            instance.el.__cocreatePluginInstances[key] = instance;
-        }
-
-    } else if (typeof Target === 'object' && Target !== null && typeof val === 'object' && val !== null && !Array.isArray(val)) {
-        // Prepare the next level of the element structure
-        if (elParent && elProperty) {
-            if (!elParent[elProperty]) {
-                elParent[elProperty] = {};
-            }
-            const nextElParent = elParent[elProperty];
-            
-            for (let key in val) {
-                update(Target[key], val[key], Target, key, nextElParent, key, hostElement);
-            }
-        }
-    } else if (parent && property) {
-        if (isReferenceAssignment(val)) {
-            const adapter = createFunctionAdapter(val, parent, property, hostElement);
-            parent[property] = adapter;
-            if (elParent && elProperty) elParent[elProperty] = adapter;
-            return;
-        }
-
-        // If it's not a function, we are setting a value on the plugin object
-        parent[property] = val;
-        
-        // Map the value to the element structure
-        if (elParent && elProperty) {
-            elParent[elProperty] = val;
-        }
-        
-        console.log(`Set plugin property ${property} to`, val);
-    }
-}
-
-/**
- * Generic Parameter Processor
- * Handles: 
- * - $this / $this.children
- * - $window.path.to.function(arg)
- * - $anime.stagger(100)
- * - Global access: $document, $window, etc.
- */
-function processParams(el, params) {
-    if (typeof params === 'string' && params.startsWith('\u0024')) {
         try {
-            // 1. Check for Method Call: $root.path.to.func(arg)
-            const callMatch = params.match(/^\u0024([^.]+)\.(.+)\((.*)\)$/);
-            if (callMatch) {
-                const [_, root, path, arg] = callMatch;
-                const obj = (root === 'this') ? el : window[root];
+            let val = attr.value.trim();
+            if (val === "") val = "true";
+
+            // BOOTSTRAPPING (Initialize on First Sight via Operator Engine)
+            let existingInstance = activePluginName && el[activePluginName];
+
+            if (activePluginName && !existingInstance) {
+                const initVal = (cleanAttrName === activePluginName.toLowerCase()) ? val : null;
                 
-                // If root object exists, drill down
-                if (obj) {
-                    const func = path.split('.').reduce((o, k) => (o || {})[k], obj);
-                    if (typeof func === 'function') {
-                        // Parse argument if JSON-like, else string
-                        const parsedArg = arg ? (function() { try { return JSON.parse(arg); } catch(e) { return arg; } })() : undefined;
-                        return func(parsedArg);
+                let safeInit = initVal;
+                if (initVal) {
+                    if (!initVal.includes('$') && isNaN(initVal) && initVal !== 'true' && initVal !== 'false' && initVal !== 'null') {
+                        if (!initVal.startsWith("'") && !initVal.startsWith('"')) safeInit = `'${initVal}'`;
                     }
                 }
-            }
-            
-            // 2. Check for Property Access: $root.path.to.prop or just $root
-            const propMatch = params.match(/^\u0024([^.]+)(?:\.(.+))?$/);
-            if (propMatch) {
-                const [_, root, path] = propMatch;
-                const obj = (root === 'this') ? el : window[root];
                 
-                if (obj) {
-                    if (!path) return (obj instanceof HTMLCollection) ? Array.from(obj) : obj;
-                    
-                    const val = path.split('.').reduce((o, k) => (o || {})[k], obj);
-                    // Convert HTMLCollections to Arrays
-                    return (val instanceof HTMLCollection) ? Array.from(val) : val;
+                // Temporarily expose the library to the element so processOperatorsAsync can find and execute it natively
+                if (window[activePluginName]) {
+                    el[activePluginName] = window[activePluginName];
+                }
+
+                // Construct initialization string (e.g., $Toastify(...) )
+                let initExpr = safeInit ? `$${activePluginName}(${safeInit})` : `$${activePluginName}()`;
+                
+                // Await initialization from the operator engine
+                const initResult = await processOperatorsAsync(el, initExpr, [], null, [], new Map([["$this", el]]));
+                
+                if (initResult !== undefined && initResult !== null && initResult !== "") {
+                    // Overwrite the temporary library function with the returned instance
+                    el[activePluginName] = initResult;
+                    existingInstance = initResult;
+                }
+
+                // If this attribute was the base initializer, we're done processing it
+                if (cleanAttrName === activePluginName.toLowerCase()) {
+                    continue;
                 }
             }
 
-            // 3. Check for standalone globals like $document or $window
-            const globalKey = params.substring(1);
-            if (window[globalKey]) {
-                return window[globalKey];
+            // --- CASE-SENSITIVE PATH RESOLUTION ---
+            // Reconstruct the attribute path with correct casing from the instance/element deeply
+            let keyParts = attrName.split('.');
+            let resolvedParts = [];
+            let pointer = null;
+
+            if (isDirectThis) {
+                resolvedParts.push('$this');
+                pointer = el;
+            } else {
+                resolvedParts.push(activePluginName);
+                pointer = existingInstance || el; // Fallback to element if instance isn't populated
+            }
+
+            for (let j = 1; j < keyParts.length; j++) {
+                let part = keyParts[j];
+                let isMethod = part.endsWith('()');
+                let cleanPart = part.replace('()', '');
+                let matchedKey = part;
+
+                if (pointer != null) {
+                    if (pointer[cleanPart] !== undefined) {
+                        matchedKey = part;
+                    } else {
+                        let lower = cleanPart.toLowerCase();
+                        let realKey = null;
+
+                        let currentObj = pointer;
+                        while (currentObj) {
+                            let props = Object.getOwnPropertyNames(currentObj);
+                            let found = props.find(p => p.toLowerCase() === lower);
+                            if (found) {
+                                realKey = found;
+                                break;
+                            }
+                            currentObj = Object.getPrototypeOf(currentObj);
+                        }
+
+                        if (realKey) {
+                            matchedKey = isMethod ? realKey + '()' : realKey;
+                        }
+                    }
+                    pointer = pointer[matchedKey.replace('()', '')];
+                }
+                resolvedParts.push(matchedKey);
+            }
+            
+            let correctedAttrName = resolvedParts.join('.');
+
+            // --- DECORATION & EXECUTION ---
+            // Plugins must be prefixed with $ for the operator engine's property resolution
+            let prefixedAttrName = correctedAttrName;
+            if (activePluginName && !isDirectThis) {
+                prefixedAttrName = "$" + correctedAttrName;
+            }
+
+            const isMethodCall = correctedAttrName.includes('(') || correctedAttrName.endsWith('()');
+            let expression = "";
+
+            if (isMethodCall) {
+                expression = prefixedAttrName;
+            } else {
+                let safeValue = val;
+                if (!val.includes('$') && isNaN(val) && val !== 'true' && val !== 'false' && val !== 'null') {
+                    if (!val.startsWith("'") && !val.startsWith('"')) safeValue = `'${val}'`;
+                }
+                expression = `${prefixedAttrName} = ${safeValue}`;
+            }
+
+            // Execute using the existing processOperatorsAsync system.
+            const result = await processOperatorsAsync(el, expression, [], null, [], new Map([["$this", el]]));
+
+            // CAPTURE & ASSIGN: If the element still lacks the instance, save the result of the execution to the element
+            if (activePluginName && !el[activePluginName] && result !== undefined && result !== null && result !== "") {
+                el[activePluginName] = result;
             }
 
         } catch (e) {
-            console.warn("Failed to resolve dynamic token:", params);
+            console.warn(`[Plugin System] Sequential Execution Error (${attrName}):`, e);
         }
     }
-    
-    if (Array.isArray(params)) return params.map(p => processParams(el, p));
-    if (typeof params === 'object' && params !== null) {
-        const res = {};
-        for (let k in params) res[k] = processParams(el, params[k]);
-        return res;
+
+    // 3. FALLBACK BOOT
+    for (const name of pluginNames) {
+        if (!el[name]) {
+            if (window[name]) {
+                el[name] = window[name];
+            }
+            const initResult = await processOperatorsAsync(el, `$${name}()`, [], null, [], new Map([["$this", el]]));
+            if (initResult !== undefined && initResult !== null && initResult !== "") {
+                el[name] = initResult;
+            }
+        }
     }
-    return params;
 }
 
-// --- STARTUP LOGIC ---
-
+// Global Startup
 if (typeof document !== 'undefined') {
-    // Dynamic Import: Loads config if available, handles error if missing.
-    // Works with 'npm start' (Bundlers) by creating a code-split chunk.
+    const selector = "[plugin]";
+    Observer.init({
+        name: "plugin",
+        types: ["addedNodes", "attributes"],
+        selector: selector,
+        attributeFilter: ["plugin"],
+        callback: (mutation) => init(mutation.target)
+    });
+
     import("./CoCreate.config.js")
         .then((Config) => {
-            // LOGIC: Merge exports into plugins object
-            if (Config.plugins) {
-                Object.assign(plugins, Config.plugins);
-            } 
-            else if (Config.default) {
-                if (Config.default.plugins) {
-                    Object.assign(plugins, Config.default.plugins);
-                } else {
-                    Object.assign(plugins, Config.default);
-                }
-            }
+            const data = Config.plugins || Config.default?.plugins || Config.default || {};
+            Object.assign(plugins, data);
         })
-        .catch((err) => {
-            // Optional: fail silently for optional config
-        })
-        .finally(() => {
-            // Start Observer
-            Observer.init({
-                name: "plugin",
-                types: ["addedNodes", "attributes"],
-                selector: "[plugin]",
-                attributeFilter: ["plugin"],
-                callback: (mutation) => {
-                    init(mutation.target);
-                }
-            });
-            
-            // Initial Init
-            init(document.querySelectorAll("[plugin]"));
-        });
+        .catch(() => {})
+        .finally(() => init(document.querySelectorAll(selector)));
 }
 
-export default { init, plugins }
+export default { init, plugins };
