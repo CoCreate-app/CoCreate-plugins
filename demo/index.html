@@ -1,230 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>Plugins API Demo</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="manifest" href="/manifest.webmanifest" />
-        
-        <!-- Bootstrap 5 CSS for Demo Presentation -->
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        
-        <style>
-            body { background-color: #f8f9fa; padding-bottom: 50px; }
-            .demo-card { margin-bottom: 2rem; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-            .card-header { background-color: #fff; border-bottom: 1px solid #eee; padding: 1.5rem; }
-            .operator-badge { font-family: monospace; background: #e9ecef; color: #d63384; padding: 2px 6px; border-radius: 4px; }
-        </style>
-    </head>
-    <body>
+<head>
+    <title>Plugins API Test Suite</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- UI Framework for Demo -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Library CSS (Toastify) -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+        }
+        body { background-color: #f8fafc; padding-top: 50px; padding-bottom: 100px; font-family: system-ui, -apple-system, sans-serif; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 2rem; }
+        .card-header { background: #fff; border-bottom: 1px solid #e2e8f0; font-weight: 600; padding: 1.25rem; }
+        .code-block { background: #1e293b; color: #f1f5f9; padding: 1rem; border-radius: 8px; font-family: 'Fira Code', monospace; font-size: 0.85rem; margin-top: 1rem; overflow-x: auto; }
+        .live-preview { background: #fff; border: 2px dashed #e2e8f0; border-radius: 8px; padding: 2rem; display: flex; align-items: center; justify-content: center; min-height: 140px; }
+        .badge-sequential { background-color: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600; margin-bottom: 0.5rem; display: inline-block; }
+    </style>
+</head>
+<body>
 
-        <div class="container py-5">
-            <div class="row mb-4">
-                <div class="col-12 text-center">
-                    <h1 class="display-5 fw-bold text-primary">CoCreate Plugins API</h1>
-                    <p class="lead text-muted">A declarative, attribute-based system for initializing and configuring JavaScript libraries.</p>
-                </div>
-            </div>
-
-            <!-- SECTION 1: THE BASICS -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card demo-card">
-                        <div class="card-header">
-                            <h4 class="m-0">1. The Basics: Declarative Initialization</h4>
-                        </div>
-                        <div class="card-body">
-                            <p>Initialize any supported plugin using the <code>plugin="PluginName"</code> attribute. Configure it using the lowercase attribute matching the plugin name (e.g., <code>pluginname="{ options }"</code>).</p>
-                            
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <h6 class="text-muted text-uppercase fs-7 fw-bold mb-3">Live Demo</h6>
-                                    <!-- Toastify Example -->
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-success"
-                                        plugin="Toastify" 
-                                        toastify='{ 
-                                            "text": "Hello! I am a declarative toast.", 
-                                            "duration": 3000, 
-                                            "gravity": "top", 
-                                            "position": "right", 
-                                            "style": { "background": "#198754" } 
-                                        }'
-                                        onclick="this.Toastify.showToast()">
-                                        Click me to Show Toast
-                                    </button>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6 class="text-muted text-uppercase fs-7 fw-bold mb-3">Code</h6>
-<pre><code class="language-html">&lt;button 
-    plugin="Toastify" 
-    toastify='{ 
-        "text": "Hello!", 
-        "duration": 3000, 
-        "style": { "background": "#198754" } 
-    }'
-    onclick="this.Toastify.showToast()"&gt;
-    Click Me
-&lt;/button&gt;</code></pre>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECTION 2: OPERATORS & VARIABLES -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card demo-card">
-                        <div class="card-header">
-                            <h4 class="m-0">2. Variable Operators</h4>
-                        </div>
-                        <div class="card-body">
-                            <p>The API supports special variables to reference DOM elements and global objects dynamically within your JSON configuration.</p>
-                            
-                            <div class="table-responsive mb-4">
-                                <table class="table table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Operator</th>
-                                            <th>Description</th>
-                                            <th>Usage Example</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><span class="operator-badge">$this</span></td>
-                                            <td>References the current DOM element where the attribute is placed.</td>
-                                            <td><code>"element": "$this"</code></td>
-                                        </tr>
-                                        <tr>
-                                            <td><span class="operator-badge">$window</span></td>
-                                            <td>Accesses the global <code>window</code> object (useful for callbacks).</td>
-                                            <td><code>"callback": "$window.console.log"</code></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- RaterJs Example ($this) -->
-                            <div class="border rounded p-3 bg-light mb-3">
-                                <h5 class="mb-3">Example: Using <code>$this</code> for Element Binding</h5>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <!-- RaterJs Implementation -->
-                                        <div dir="ltr" 
-                                             plugin="raterJs" 
-                                             raterjs='[{ 
-                                                 "element": "$this", 
-                                                 "starSize": 32, 
-                                                 "rating": 3.5, 
-                                                 "step": 0.5 
-                                             }]'>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-<pre><code class="language-html">&lt;div 
-    plugin="raterJs" 
-    raterjs='[{ 
-        "element": "$this", 
-        "starSize": 32, 
-        "rating": 3.5 
-    }]'&gt;
-&lt;/div&gt;</code></pre>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECTION 3: CONFIGURATION PATTERNS -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card demo-card">
-                        <div class="card-header">
-                            <h4 class="m-0">3. Configuration Patterns (Array vs. Object)</h4>
-                        </div>
-                        <div class="card-body">
-                            <p>Plugins have different constructor signatures. The API handles both by inspecting the JSON structure.</p>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card h-100 bg-light border-0">
-                                        <div class="card-body">
-                                            <h6 class="fw-bold">Pattern A: Single Config Object</h6>
-                                            <p class="small text-muted">Used when the plugin accepts a single object containing all settings (e.g., <code>raterJs({ element: div })</code>).</p>
-                                            <hr>
-                                            <code>config='[{ "element": "$this", "opt": "val" }]'</code>
-                                            <br><small class="text-danger">*Note: Enclosed in an array to represent arguments list.</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card h-100 bg-light border-0">
-                                        <div class="card-body">
-                                            <h6 class="fw-bold">Pattern B: Argument List</h6>
-                                            <p class="small text-muted">Used when the plugin accepts multiple distinct arguments (e.g., <code>Swiper(element, options)</code>).</p>
-                                            <hr>
-                                            <code>config='["$this", { "opt": "val" }]'</code>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- SECTION 4: ADVANCED (Callbacks) -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card demo-card">
-                        <div class="card-header">
-                            <h4 class="m-0">4. Advanced: Callbacks & Global Functions</h4>
-                        </div>
-                        <div class="card-body">
-                            <p>Use <code>$window</code> or specific global names (like <code>$Swal</code>) to pass functions into configuration attributes.</p>
-                            
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <!-- SweetAlert Example -->
-                                    <button 
-                                        type="button"
-                                        class="btn btn-primary"
-                                        onclick="Swal.fire({
-                                            title: 'Are you sure?',
-                                            text: 'You can define this entire config in HTML!',
-                                            icon: 'warning',
-                                            showCancelButton: true,
-                                            confirmButtonText: 'Yes, delete it!'
-                                        })">
-                                        Trigger SweetAlert
-                                    </button>
-                                </div>
-                                <div class="col-md-6">
-<pre><code class="language-html">&lt;button 
-    onclick="Swal.fire({
-        title: 'Ready?',
-        preConfirm: '$window.myCustomFunction' 
-    }) &gt;
-    Launch
-&lt;/button&gt;</code></pre>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+    <div class="container" style="max-width: 800px;">
+        <div class="text-center mb-5">
+            <h1 class="fw-bold">Linear Execution Test Suite</h1>
+            <p class="text-muted">Testing the sequential processing of HTML attributes as logic.</p>
         </div>
 
-        <!-- CoCreate Engine -->
-        <script src="https://CoCreate.app/dist/CoCreate.js"></script>
+        <!-- TEST 1: Dot-Notation + Method Execution -->
+        <div class="card">
+            <div class="card-header">1. Sequential Property & Method Call</div>
+            <div class="card-body">
+                <p class="text-secondary small">This button sets multiple properties on the Toastify instance and then calls the execution method, all in order.</p>
+                <div class="live-preview flex-column">
+                    <button type="button" class="btn btn-primary px-4"
+                        plugin="Toastify" 
+                        Toastify.text="Step-by-step logic works!" 
+                        Toastify.duration="4000" 
+                        Toastify.style.background="linear-gradient(to right, #00b09b, #96c93d)"
+                        Toastify.showToast()="">
+                        Trigger Sequential Toast
+                    </button>
+                    <div class="code-block w-100">
+                        plugin="Toastify" <br>
+                        Toastify.text="..." <br>
+                        Toastify.showToast()=""
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    </body>
+        <!-- TEST 2: JSON Object + Method Call -->
+        <div class="card">
+            <div class="card-header">2. Object-Based Initialization</div>
+            <div class="card-body">
+                <p class="text-secondary small">Initializing using a full JSON object, followed immediately by a method call.</p>
+                <div class="live-preview flex-column">
+                    <button type="button" class="btn btn-dark px-4"
+                        plugin="Toastify" 
+                        Toastify()='{"text": "JSON Object Booted!", "gravity": "bottom", "position": "left"}'
+                        Toastify.showToast()="">
+                        Trigger JSON Boot
+                    </button>
+                    <div class="code-block w-100">
+                        plugin="Toastify" <br>
+                        Toastify='{"text": "..."}' <br>
+                        $Toastify.showToast()=""
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TEST 3: Interleaved $this and Plugin Logic -->
+        <div class="card">
+            <div class="card-header">3. Interleaved Element & Plugin Logic</div>
+            <div class="card-body">
+                <p class="text-secondary small">This test changes the button's own style using <code>$this</code> before triggering the plugin logic.</p>
+                <div class="live-preview flex-column">
+                    <button type="button" class="btn btn-outline-danger px-4"
+                        $this.style.borderRadius="0px"
+                        $this.innerText="Order Processed"
+                        plugin="Toastify"
+                        Toastify.text="Element changed first!"
+                        Toastify.showToast()>
+                        Change Me & Toast
+                    </button>
+                    <div class="code-block w-100">
+                        $this.style.borderRadius="0px" <br>
+                        plugin="Toastify" <br>
+                        Toastify.showToast()=""
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TEST 4: Input State Manipulation -->
+        <div class="card">
+            <div class="card-header">4. Input Property Manipulation</div>
+            <div class="card-body">
+                <p class="text-secondary small">Directly setting properties on an input element on load.</p>
+                <div class="live-preview">
+                    <input type="text" class="form-control"
+                        $this.value="CoCreate Linear Engine"
+                        $this.style.border="2px solid #0d6efd"
+                        $this.placeholder="Wait for it..."
+                        plugin="Toastify"
+                        Toastify.text="Input properties applied"
+                        Toastify.duration="2000"
+                        Toastify.showToast()="">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- CoCreate JS Bundle (Contains plugin.js and operatorEngine.js) -->
+    <script src="../../../CoCreateJS/src/dist/CoCreate.js"></script>
+
+    <!-- External Plugin Library -->
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <script type="module">
+        console.log("Test Suite Ready. The 'plugin.js' sequencer will now process attributes in order.");
+    </script>
+</body>
 </html>
