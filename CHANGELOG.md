@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.2.1...v1.3.0) (2026-03-11)
+
+
+### Bug Fixes
+
+* Update demo/index.html to test sequential execution of attributes as logic ([d71e0a5](https://github.com/CoCreate-app/CoCreate-plugins/commit/d71e0a562bc48337746583a04bf230f84134f6c7))
+
+
+### Features
+
+* Refactor plugin initialization to sequentially load resources and execute attributes in DOM order. Add support for direct $this references in attributes. Improve error handling and logging during plugin execution. ([08ecdb2](https://github.com/CoCreate-app/CoCreate-plugins/commit/08ecdb2b2bb8bba2cf3950eb2ef5e7ac77916203))
+
 ## [1.2.1](https://github.com/CoCreate-app/CoCreate-plugins/compare/v1.2.0...v1.2.1) (2026-03-02)
 
 
