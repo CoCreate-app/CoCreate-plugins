@@ -79,7 +79,7 @@ async function processPlugin(el) {
         const attrLower = attrName.toLowerCase();
 
         const isDirectThis = attrName.startsWith('$this.');
-        let cleanAttrName = attrLower;
+        let cleanAttrName = attrLower.replace("()", ""); // Remove parentheses for method matching
         if (isDirectThis) {
             cleanAttrName = attrLower.substring(6); // Strip '$this.' for plugin matching
         }
