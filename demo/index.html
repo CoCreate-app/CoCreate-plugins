@@ -39,9 +39,7 @@
                 <div class="live-preview flex-column">
                     <button type="button" class="btn btn-primary px-4"
                         plugin="Toastify" 
-                        Toastify.text="Step-by-step logic works!" 
-                        Toastify.duration="4000" 
-                        Toastify.style.background="linear-gradient(to right, #00b09b, #96c93d)"
+                        Toastify()='$parse({"message": "Hello from a single object!", "duration": 3000, "style": {"background": "#0d6efd"}})'
                         Toastify.showToast()="">
                         Trigger Sequential Toast
                     </button>
@@ -54,67 +52,6 @@
             </div>
         </div>
 
-        <!-- TEST 2: JSON Object + Method Call -->
-        <div class="card">
-            <div class="card-header">2. Object-Based Initialization</div>
-            <div class="card-body">
-                <p class="text-secondary small">Initializing using a full JSON object, followed immediately by a method call.</p>
-                <div class="live-preview flex-column">
-                    <button type="button" class="btn btn-dark px-4"
-                        plugin="Toastify" 
-                        Toastify()='{"text": "JSON Object Booted!", "gravity": "bottom", "position": "left"}'
-                        Toastify.showToast()="">
-                        Trigger JSON Boot
-                    </button>
-                    <div class="code-block w-100">
-                        plugin="Toastify" <br>
-                        Toastify='{"text": "..."}' <br>
-                        $Toastify.showToast()=""
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TEST 3: Interleaved $this and Plugin Logic -->
-        <div class="card">
-            <div class="card-header">3. Interleaved Element & Plugin Logic</div>
-            <div class="card-body">
-                <p class="text-secondary small">This test changes the button's own style using <code>$this</code> before triggering the plugin logic.</p>
-                <div class="live-preview flex-column">
-                    <button type="button" class="btn btn-outline-danger px-4"
-                        $this.style.borderRadius="0px"
-                        $this.innerText="Order Processed"
-                        plugin="Toastify"
-                        Toastify.text="Element changed first!"
-                        Toastify.showToast()>
-                        Change Me & Toast
-                    </button>
-                    <div class="code-block w-100">
-                        $this.style.borderRadius="0px" <br>
-                        plugin="Toastify" <br>
-                        Toastify.showToast()=""
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TEST 4: Input State Manipulation -->
-        <div class="card">
-            <div class="card-header">4. Input Property Manipulation</div>
-            <div class="card-body">
-                <p class="text-secondary small">Directly setting properties on an input element on load.</p>
-                <div class="live-preview">
-                    <input type="text" class="form-control"
-                        $this.value="CoCreate Linear Engine"
-                        $this.style.border="2px solid #0d6efd"
-                        $this.placeholder="Wait for it..."
-                        plugin="Toastify"
-                        Toastify.text="Input properties applied"
-                        Toastify.duration="2000"
-                        Toastify.showToast()="">
-                </div>
-            </div>
-        </div>
 
     </div>
 
