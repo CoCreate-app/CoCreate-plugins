@@ -98,24 +98,39 @@ async function processPlugin(el) {
 
             if (activePluginName && !existingInstance) {
                 const initVal = (cleanAttrName === activePluginName.toLowerCase()) ? val : null;
-                
-                let safeInit = initVal;
-                if (initVal) {
-                    if (!initVal.includes('$') && isNaN(initVal) && initVal !== 'true' && initVal !== 'false' && initVal !== 'null') {
-                        if (!initVal.startsWith("'") && !initVal.startsWith('"')) safeInit = `'${initVal}'`;
-                    }
-                }
-                
+                                
                 // Temporarily expose the library to the element so processOperatorsAsync can find and execute it natively
-                if (window[activePluginName]) {
+                // Only attach the global library if the element does not already have an instance
+                if (window[activePluginName] && (el[activePluginName] === undefined || el[activePluginName] === null)) {
                     el[activePluginName] = window[activePluginName];
                 }
 
-                // Construct initialization string (e.g., $Toastify(...) )
-                let initExpr = safeInit ? `$${activePluginName}(${safeInit})` : `$${activePluginName}()`;
-                
-                // Await initialization from the operator engine
-                const initResult = await processOperatorsAsync(el, initExpr, [], null, [], new Map([["$this", el]]));
+                // Determine initialization argument without aggressive auto-quoting.
+                // Rules:
+                // - If the attr value starts with '$' treat as an operator expression and pass through.
+                // - If it starts with a quote, attempt JSON.parse; on success use $parse('<json>') so operator engine returns an object.
+                // - Otherwise pass the raw string value (do not auto-wrap in quotes).
+                let safeInit = null;
+                if (initVal) {
+                    if (initVal.startsWith('{"') || initVal.startsWith('["')) {
+                        // Looks like JSON (starts with {" or ["), try to parse — on success use $parse('<json>')
+                        try {
+                            JSON.parse(initVal);
+                            safeInit = `$parse('${initVal}')`;
+                        } catch (e) {
+                          console.log(`[Plugin System] Failed to parse JSON for initialization of ${activePluginName}:`, e);
+                        }
+                    } else {
+                        safeInit = initVal;
+                    }  
+                }
+
+                // Construct initialization string (e.g., $Toastify(arg) )
+                let initExpr = safeInit ? ("$" + activePluginName + "(" + safeInit + ")") : ("$" + activePluginName + "()");
+
+                // Await initialization from the operator engine. Provide $this binding
+                // so the operator engine can resolve element-scoped references.
+                const initResult = await processOperatorsAsync(el, initExpr);
                 
                 if (initResult !== undefined && initResult !== null && initResult !== "") {
                     // Overwrite the temporary library function with the returned instance
